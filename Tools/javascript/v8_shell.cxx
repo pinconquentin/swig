@@ -13,7 +13,7 @@ typedef int (*V8ExtensionInitializer) (v8::Handle<v8::Object> module);
 
 // Note: these typedefs and defines are used to deal with  v8 API changes since version 3.19.00
 
-#if (V8_MAJOR_VERSION-0) < 4 && (SWIG_V8_VERSION < 0x031903)
+#if (SWIG_V8_VERSION < 0x031903)
 typedef v8::Handle<v8::Value> SwigV8ReturnValue;
 typedef v8::Arguments SwigV8Arguments;
 typedef v8::AccessorInfo SwigV8PropertyCallbackInfo;
@@ -28,11 +28,11 @@ typedef v8::PropertyCallbackInfo<v8::Value> SwigV8PropertyCallbackInfo;
 #endif
 
 
-#if (V8_MAJOR_VERSION-0) < 4 && (SWIG_V8_VERSION < 0x032117)
+#if (SWIG_V8_VERSION < 0x032117)
 #define SWIGV8_HANDLESCOPE() v8::HandleScope scope
 #define SWIGV8_HANDLESCOPE_ESC() v8::HandleScope scope
 #define SWIGV8_ESCAPE(val) return scope.Close(val)
-#elif (V8_MAJOR_VERSION-0) < 4 && (SWIG_V8_VERSION < 0x032318)
+#elif (SWIG_V8_VERSION < 0x032318)
 #define SWIGV8_HANDLESCOPE() v8::HandleScope scope(v8::Isolate::GetCurrent());
 #define SWIGV8_HANDLESCOPE_ESC() v8::HandleScope scope(v8::Isolate::GetCurrent());
 #define SWIGV8_ESCAPE(val) return scope.Close(val)
@@ -42,7 +42,7 @@ typedef v8::PropertyCallbackInfo<v8::Value> SwigV8PropertyCallbackInfo;
 #define SWIGV8_ESCAPE(val) return scope.Escape(val)
 #endif
 
-#if (V8_MAJOR_VERSION-0) < 4 && (SWIG_V8_VERSION < 0x032318)
+#if (SWIG_V8_VERSION < 0x032318)
 #define SWIGV8_CURRENT_CONTEXT() v8::Context::GetCurrent()
 #define SWIGV8_STRING_NEW(str) v8::String::New(str)
 #define SWIGV8_FUNCTEMPLATE_NEW(func) v8::FunctionTemplate::New(func)
@@ -59,7 +59,7 @@ typedef v8::PropertyCallbackInfo<v8::Value> SwigV8PropertyCallbackInfo;
 #endif
 
 
-#if (V8_MAJOR_VERSION-0) < 4 && (SWIG_V8_VERSION < 0x031900)
+#if (SWIG_V8_VERSION < 0x031900)
 typedef v8::Persistent<v8::Context> SwigV8Context;
 #else
 typedef v8::Local<v8::Context> SwigV8Context;
@@ -94,6 +94,8 @@ private:
   void ReportException(v8::TryCatch *handler);
 
   static SwigV8ReturnValue Print(const SwigV8Arguments &args);
+
+  static v8::Handle<v8::Value> Engine(const v8::Arguments& args);
 
   static SwigV8ReturnValue Require(const SwigV8Arguments &args);
 
@@ -149,9 +151,9 @@ bool V8Shell::RunScript(const std::string &scriptPath) {
 
   context->Exit();
 
-#if (V8_MAJOR_VERSION-0) < 4 && (SWIG_V8_VERSION < 0x031710)
+#if (SWIG_V8_VERSION < 0x031710)
     context.Dispose();
-#elif (V8_MAJOR_VERSION-0) < 4 && (SWIG_V8_VERSION < 0x031900)
+#elif (SWIG_V8_VERSION < 0x031900)
     context.Dispose(v8::Isolate::GetCurrent());
 #else
 //    context.Dispose();
@@ -193,9 +195,9 @@ bool V8Shell::RunShell() {
 
   context->Exit();
 
-#if (V8_MAJOR_VERSION-0) < 4 && (SWIG_V8_VERSION < 0x031710)
+#if (SWIG_V8_VERSION < 0x031710)
     context.Dispose();
-#elif (V8_MAJOR_VERSION-0) < 4 && (SWIG_V8_VERSION < 0x031900)
+#elif (SWIG_V8_VERSION < 0x031900)
     context.Dispose(v8::Isolate::GetCurrent());
 #else
 //    context.Dispose();
@@ -240,16 +242,19 @@ bool V8Shell::DisposeEngine() {
 }
 
 SwigV8Context V8Shell::CreateShellContext() {
+  v8::V8::SetFlagsFromString("--expose_gc", 11);
+
   // Create a template for the global object.
   v8::Handle<v8::ObjectTemplate> global = v8::ObjectTemplate::New();
 
   // Bind global functions
-  global->Set(SWIGV8_STRING_NEW("print"), SWIGV8_FUNCTEMPLATE_NEW(V8Shell::Print));
-  global->Set(SWIGV8_STRING_NEW("quit"), SWIGV8_FUNCTEMPLATE_NEW(V8Shell::Quit));
-  global->Set(SWIGV8_STRING_NEW("require"), SWIGV8_FUNCTEMPLATE_NEW(V8Shell::Require));
-  global->Set(SWIGV8_STRING_NEW("version"), SWIGV8_FUNCTEMPLATE_NEW(V8Shell::Version));
+  global->Set(v8::String::New("print"), v8::FunctionTemplate::New(V8Shell::Print));
+  
+  global->Set(v8::String::New("quit"), v8::FunctionTemplate::New(V8Shell::Quit));
+  global->Set(v8::String::New("require"), v8::FunctionTemplate::New(V8Shell::Require));
+  global->Set(v8::String::New("version"), v8::FunctionTemplate::New(V8Shell::Version));
 
-#if (V8_MAJOR_VERSION-0) < 4 && (SWIG_V8_VERSION < 0x031900)
+#if (SWIG_V8_VERSION < 0x031900)
   SwigV8Context context = v8::Context::New(NULL, global);
   return context;
 #else
@@ -300,6 +305,10 @@ SwigV8ReturnValue V8Shell::Print(const SwigV8Arguments &args) {
   fflush(stdout);
 
   SWIGV8_RETURN(SWIGV8_UNDEFINED());
+}
+
+v8::Handle<v8::Value> V8Shell::Engine(const v8::Arguments& args) {
+  return v8::String::New("v8");
 }
 
 SwigV8ReturnValue V8Shell::Require(const SwigV8Arguments &args) {

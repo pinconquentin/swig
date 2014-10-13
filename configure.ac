@@ -1482,7 +1482,7 @@ else
 
   # check for include files
   AC_MSG_CHECKING(for JavaScriptCore/JavaScript.h)
-  AC_ARG_WITH(jscoreinc, [  --with-jscinc=path      Set location of Javascript include directory], [JSCOREINCDIR="$withval"], [JSCOREINCDIR=])
+  AC_ARG_WITH(jscoreinc, [  --with-jscoreinc=path    Set location of Javascript include directory], [JSCOREINCDIR="$withval"], [JSCOREINCDIR=])
 
   JSCOREVERSION=
 
@@ -1516,7 +1516,22 @@ else
   fi
 
   # check for JavaScriptCore/Webkit libraries
-  AC_ARG_WITH(jscorelib,[  --with-jsclib=path      Set location of the JavaScriptCore/Webkit library directory],[JSCORELIB="-L$withval"], [JSCORELIB=])
+  AC_ARG_WITH(jscorelib,[  --with-jscorelib=path      Set location of the JavaScriptCore/Webkit library directory],[JSCORELIB="-L$withval"], [JSCORELIB=])
+  AC_MSG_CHECKING(for JavaScriptCore/Webkit library)
+
+  # look for the library when not provided
+  if test -z "$JSCORELIB"; then
+    case $host in
+    *-*-linux*)
+      dirs="/usr/lib64/ /usr/local/lib64/ /usr/lib/ /usr/local/lib/"
+      for i in $dirs ; do
+        if test -r $i/libjavascriptcoregtk-1.0.so; then
+          AC_MSG_RESULT($i)
+          JSCORELIB="-L$i -ljavascriptcoregtk-1.0"
+          JSCOREVERSION=`pkg-config --modversion javascriptcoregtk-1.0`
+          break
+        fi
+      done
 
   if test -z "$JSCORELIB" -a -n "$PKGCONFIG"; then
     AC_MSG_CHECKING(for JavaScriptCore/Webkit library)
@@ -1531,7 +1546,30 @@ else
       AC_MSG_RESULT([$JSCORELIB])
       JSCOREDYNAMICLINKING="$JSCORELIB"
       JSCENABLED=1
-    fi
+      ;;
+    *)
+      ;;
+    esac
+  else
+    JSCOREDYNAMICLINKING="$JSCORELIB"
+    JSCENABLED=1
+  fi
+
+  if test ! -z "$JSCENABLED"; then
+    jsc_save_CFLAGS="$CFLAGS"
+    jsc_save_LDFLAGS="$LDFLAGS"
+    CFLAGS="$CFLAGS -I$JSCOREINCDIR"
+    LDFLAGS="$LDFLAGS $JSCORELIB -Wl,-no-undefined"
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+        #include <JavaScriptCore/JavaScript.h>
+        void JSSynchronousGarbageCollectForDebugging(JSContextRef);
+    ]], [[
+        JSContextRef context = JSGlobalContextCreate(NULL);
+        JSSynchronousGarbageCollectForDebugging(context);
+    ]])], [JSCGARBAGE=1], [JSCGARBAGE=0])
+    CFLAGS="$jsc_save_CFLAGS"
+    LDFLAGS="$jsc_save_LDFLAGS"
+    AC_SUBST(JSCGARBAGE)
   fi
 
   #----------------------------------------------------------------
